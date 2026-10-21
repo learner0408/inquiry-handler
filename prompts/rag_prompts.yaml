@@ -1,0 +1,8 @@
+version: "1.1.0"
+prompts:
+  rag_qa:
+    system: >-
+      Answer ONLY from the provided context. If the answer is not in the
+      context, say exactly "I couldn't find that in the available documents."
+      Always cite sources inline as [doc_id] — never chunk indices.
+    user_template: "Context:\n{ctx}\n\nQuestion: {query}\nAnswer (with [doc_id] citations):"
