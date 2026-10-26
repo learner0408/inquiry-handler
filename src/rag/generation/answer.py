@@ -15,7 +15,8 @@ from pathlib import Path
 import yaml
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from pydantic import SecretStr
 
 from src.config import get_settings
 
@@ -35,9 +36,11 @@ def _get_llm() -> BaseChatModel:
         if not settings.ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY must be set when LLM_PROVIDER=anthropic")
         return ChatAnthropic(
-            model=settings.LLM_MODEL,
+            model_name=settings.LLM_MODEL,
             temperature=settings.LLM_TEMPERATURE,
-            api_key=settings.ANTHROPIC_API_KEY,
+            api_key=SecretStr(settings.ANTHROPIC_API_KEY),
+            stop=None,
+            timeout=None,
         )
     if settings.LLM_PROVIDER == "openai":
         if not settings.OPENAI_API_KEY:
@@ -47,9 +50,18 @@ def _get_llm() -> BaseChatModel:
         return ChatOpenAI(
             model=settings.LLM_MODEL,
             temperature=settings.LLM_TEMPERATURE,
-            api_key=settings.OPENAI_API_KEY,
+            api_key=SecretStr(settings.OPENAI_API_KEY),
         )
     raise ValueError(f"unknown LLM_PROVIDER: {settings.LLM_PROVIDER}")
+
+
+def _response_text(response: BaseMessage) -> str:
+    return (response.content if isinstance(response.content, str)
+            else str(response.content)).strip()
+
+
+def _turns_text(turns: list[dict]) -> str:
+    return "\n".join(f"{turn['role']}: {turn['content']}" for turn in turns)
 
 
 def build_context(context_chunks: list[dict]) -> str:
@@ -73,9 +85,9 @@ def resolve_citations(answer_text: str, reranked: list[dict]) -> list[str]:
         top_chunk_per_doc.setdefault(c["doc_id"], c)
     citations: list[str] = []
     for ref in _parse_doc_refs(answer_text):
-        c = top_chunk_per_doc.get(ref)
-        if c is not None:
-            citation = f"{c['doc_id']}#{c['chunk_index']}"
+        chunk = top_chunk_per_doc.get(ref)
+        if chunk is not None:
+            citation = f"{chunk['doc_id']}#{chunk['chunk_index']}"
             if citation not in citations:
                 citations.append(citation)
     return citations
@@ -84,15 +96,42 @@ def resolve_citations(answer_text: str, reranked: list[dict]) -> list[str]:
 def generate_answer(query: str, history: list[dict], reranked: list[dict]) -> dict:
     settings = get_settings()
     prompt = _load_prompts()["prompts"]["rag_qa"]
-    msgs = [SystemMessage(prompt["system"])]
-    for turn in history[-settings.HISTORY_MAX_TURNS:]:
-        if turn["role"] == "assistant":
+    msgs: list[BaseMessage] = [SystemMessage(prompt["system"])]
+    summary_turns = [turn for turn in history if turn["role"] == "system"]
+    recent_turns = [turn for turn in history if turn["role"] != "system"]
+    for turn in summary_turns + recent_turns[-settings.HISTORY_MAX_MESSAGES:]:
+        if turn["role"] == "system":
+            msgs.append(SystemMessage(turn["content"]))
+        elif turn["role"] == "assistant":
             msgs.append(AIMessage(turn["content"]))
         else:
             msgs.append(HumanMessage(turn["content"]))
     ctx = build_context(reranked)
     msgs.append(HumanMessage(prompt["user_template"].format(ctx=ctx, query=query)))
     response = _get_llm().invoke(msgs)
-    answer = (response.content or "").strip()
+    answer = _response_text(response)
     return {"answer": answer, "citations": resolve_citations(answer, reranked),
             "fallback": answer == FALLBACK}
+
+
+def summarize_conversation(current_summary: str, delta_turns: list[dict]) -> str:
+    """Merge newly rolled-out turns into the running summary."""
+    prompt = _load_prompts()["prompts"]["summarization"]
+    response = _get_llm().invoke([
+        SystemMessage(prompt["system"]),
+        HumanMessage(prompt["user_template"].format(
+            current_summary=current_summary or "(no previous summary)",
+            turns=_turns_text(delta_turns),
+        )),
+    ])
+    return _response_text(response) or current_summary
+
+
+def generate_thread_title(first_turns: list[dict]) -> str:
+    """Generate a short label once, from a thread's first exchange."""
+    prompt = _load_prompts()["prompts"]["title"]
+    response = _get_llm().invoke([
+        SystemMessage(prompt["system"]),
+        HumanMessage(prompt["user_template"].format(turns=_turns_text(first_turns))),
+    ])
+    return _response_text(response) or "New conversation"

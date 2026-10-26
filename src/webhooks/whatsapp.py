@@ -3,7 +3,8 @@
 POST flow: raw-body HMAC-SHA256 vs X-Hub-Signature-256 (WHATSAPP_APP_SECRET) ->
 403 on mismatch; else 200 {"ok": true} immediately, then background task:
 parse -> statuses ignored -> external_id dedupe (check-first, unique backstop)
--> handle_inquiry (sync pipeline, offloaded via to_thread) -> send reply.
+-> handle_inquiry (sync pipeline, offloaded via to_thread) -> send reply
+-> maintain thread title/summary (housekeeping after the reply).
 App secret enforced lazily here; test-WABA lock (error 131031) on fresh
 portfolios is a Meta-side business-verification gate, not a code concern.
 """
@@ -20,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 
 from src.channels.whatsapp import WhatsAppMessage, parse_meta_payload, send_message
 from src.config import get_settings
+from src.conversation.threads import maintain
 from src.db.engine import get_sync_engine
 from src.rag.generation.pipeline import handle_inquiry
 
@@ -47,7 +49,7 @@ def verify(request: Request) -> Response:
 
 
 @router.post("/webhooks/whatsapp")
-async def inbound(request: Request) -> dict[str, str]:
+async def inbound(request: Request) -> Response:
     raw = await request.body()
     settings = get_settings()
     if not settings.WHATSAPP_APP_SECRET:
@@ -60,7 +62,7 @@ async def inbound(request: Request) -> dict[str, str]:
     message = parse_meta_payload(json.loads(raw))
     if message is not None and not _external_id_seen(message.external_id):
         asyncio.create_task(_process(message))
-    return {"ok": "true"}
+    return Response(content=json.dumps({"ok": "true"}), media_type="application/json")
 
 
 def _external_id_seen(external_id: str) -> bool:
@@ -77,6 +79,7 @@ async def _process(message: WhatsAppMessage) -> None:
             message.external_id,
         )
         await send_message(message.sender_id, result.text)
+        await asyncio.to_thread(maintain, message.channel, message.sender_id)
     except IntegrityError:
         logger.info("dedupe backstop: external_id already processed")
     except Exception:  # noqa: BLE001  background task must never crash the loop

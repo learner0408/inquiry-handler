@@ -1,9 +1,9 @@
-"""Sole RAG orchestrator (sync). history.load -> cache.get -> HIT return /
+"""Sole RAG orchestrator (sync). history.load -> cache.get -> HIT save+return /
 MISS -> hybrid retrieval -> rerank -> answer -> cache.set + history.save.
 
-Sync, matching every RAG leg; FastAPI webhooks will offload via
-run_in_threadpool. Fallback answers are never cached (no citations = no
-provenance), but ARE saved to history (the user asked; continuity matters).
+Sync, matching every RAG leg; FastAPI webhooks offload via to_thread. Fallback
+answers are never cached (no citations = no provenance), but ARE saved to
+history. Cache hits are also saved so follow-ups retain the visible exchange.
 """
 
 from dataclasses import dataclass, field
@@ -38,6 +38,7 @@ def handle_inquiry(
     history_turns = history.load(sender_id, channel)
     hit = SemanticCache().get(text)
     if hit is not None:
+        history.save(sender_id, channel, text, hit.answer, external_id=external_id)
         return InquiryResult(text=hit.answer, citations=hit.citations, cache_hit=True)
 
     fused = HybridRetriever().retrieve(text, get_settings().TOP_K)

@@ -1,4 +1,4 @@
-version: "1.1.0"
+version: "1.2.0"
 prompts:
   rag_qa:
     system: >-
@@ -6,3 +6,21 @@ prompts:
       context, say exactly "I couldn't find that in the available documents."
       Always cite sources inline as [doc_id] — never chunk indices.
     user_template: "Context:\n{ctx}\n\nQuestion: {query}\nAnswer (with [doc_id] citations):"
+  summarization:
+    system: >-
+      Maintain an accurate, concise summary of a support conversation. Preserve
+      unresolved issues, user preferences, commitments, and facts needed to
+      understand later questions. Do not answer questions or add new facts.
+    user_template: >-
+      Existing summary:
+      {current_summary}
+
+      New conversation turns to incorporate:
+      {turns}
+
+      Updated summary:
+  title:
+    system: >-
+      Write a specific conversation title of at most 6 words. Use plain text
+      with no quotation marks, punctuation prefix, or trailing period.
+    user_template: "First conversation exchange:\n{turns}\n\nTitle:"

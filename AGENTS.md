@@ -22,13 +22,14 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 - `src/rag/retrieval/` — `hybrid.py` (dense + BM25 RRF)
 - `src/rag/reranking/reranker.py`
 - `src/rag/generation/` — `pipeline.py` (sole orchestrator), `answer.py` (sole LLM caller)
-- `src/conversation/` — `threads.py/history.py` (`conversation_threads` + `thread_messages`, `sender_id→thread_id`, load last N + summary, cap ~20 then summarize)
+- `src/conversation/` — `threads.py/history.py` (`conversation_threads` + `thread_messages`, `sender_id→thread_id`, load summary + last 20 raw messages, batch summaries per 20 expired messages, LLM title once per thread)
 - `prompts/rag_prompts.yaml` — versioned only, never hardcoded
 - `evals/` — DeepEval `test_*.py` (`Golden`/`ConversationalGolden` + `assert_test`), goldens in `evals/goldens/`
 - Imports: all at file top (after docstring), stdlib → third-party → first-party, `ruff check` clean. No function-level imports except circular-guard/lazy-heavy-dep with an inline `# why:` note.
+- Empty `__init__.py` in every dir under `src/` (regular packages — required for mypy module resolution; don't delete).
 
 ## Flow — order matters
-`POST /webhooks/whatsapp` → verify `X-Hub-Signature-256` (HMAC-SHA256 raw body, key = `WHATSAPP_APP_SECRET`) → 200 fast (statuses ACK'd + ignored) → check-first dedupe on `external_id` (unique backstop in `history.save`) → background task → `history.load` → `cache.get` → [HIT return] / [MISS → retrieval → rerank → `answer.py` → `cache.set` + `history.save`] → send API.
+`POST /webhooks/whatsapp` → verify `X-Hub-Signature-256` (HMAC-SHA256 raw body, key = `WHATSAPP_APP_SECRET`) → 200 fast (statuses ACK'd + ignored) → check-first dedupe on `external_id` (unique backstop in `history.save`) → background task → `history.load` (summary + last 20 raw) → `cache.get` → [HIT `history.save` + return] / [MISS → retrieval → rerank → `answer.py` → `cache.set` + `history.save`] → send API → `threads.maintain` (one-time title + batched summary).
 
 ## Commands
 - `uv sync --frozen`, `cp .env.example .env`, `docker compose up -d db`, `uv run python scripts/init_db.py && uv run alembic stamp head` (fresh DB; later schema changes via real Alembic revisions in `migrations/versions/`)
@@ -40,7 +41,7 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 - Evals only via `deepeval test run evals/test_rag.py` (never plain `pytest`)
 
 ## `src/config.py`
-Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N, LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_TURNS, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
+Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N, LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_MESSAGES, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
 
 ## Gotchas
 - Never read `.env` or `./secrets/*` contents (keys, tokens, JSON) into context — reference variable/file names only. Verify presence/shape via key names (e.g. `cut -d= -f1 .env`), never values.

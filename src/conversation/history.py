@@ -1,8 +1,9 @@
-"""Minimal conversation history: sender -> thread lookup, last-N read, plain save.
+"""Conversation history I/O: thread lookup, summary + last-N read, paired save.
 
-Full conversation module (summaries beyond N, thread titles, dedupe via
-external_id) is a later slice; external_id stays NULL here. `save` records the
-user turn and the assistant turn as a pair.
+`load` returns an optional system summary followed by the most recent raw
+messages. `save` records user and assistant turns together; the user row
+carries external_id for webhook dedupe. Summaries and titles are maintained
+by `threads.py` after replies are sent.
 """
 
 from sqlalchemy import text as sa_text
@@ -15,22 +16,30 @@ def load(sender_id: str, channel: str) -> list[dict]:
     settings = get_settings()
     engine = get_sync_engine()
     with engine.connect() as conn:
-        thread_id = conn.execute(
+        thread = conn.execute(
             sa_text(
-                "SELECT id FROM conversation_threads WHERE channel = :c AND sender_id = :s"
+                "SELECT id, summary FROM conversation_threads "
+                "WHERE channel = :c AND sender_id = :s"
             ),
             {"c": channel, "s": sender_id},
-        ).scalar_one_or_none()
-        if thread_id is None:
+        ).one_or_none()
+        if thread is None:
             return []
+        thread_id, summary = thread
         rows = conn.execute(
             sa_text(
                 "SELECT role, content FROM thread_messages "
                 "WHERE thread_id = :t ORDER BY created_at DESC LIMIT :n"
             ),
-            {"t": str(thread_id), "n": settings.HISTORY_MAX_TURNS},
+            {"t": str(thread_id), "n": settings.HISTORY_MAX_MESSAGES},
         ).all()
-    return [{"role": r.role, "content": r.content} for r in reversed(rows)]
+    turns = [{"role": r.role, "content": r.content} for r in reversed(rows)]
+    if summary:
+        turns.insert(0, {
+            "role": "system",
+            "content": f"Earlier conversation summary: {summary}",
+        })
+    return turns
 
 
 def save(

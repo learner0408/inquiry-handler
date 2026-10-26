@@ -75,6 +75,7 @@ def client(monkeypatch) -> TestClient:  # type: ignore[no-untyped-def]
     settings = get_settings()
     settings.WHATSAPP_APP_SECRET = TEST_SECRET  # type: ignore[misc]
     settings.WHATSAPP_VERIFY_TOKEN = "vt-" + uuid.uuid4().hex[:6]  # type: ignore[misc]
+    monkeypatch.setattr("src.webhooks.whatsapp.maintain", lambda channel, sender_id: None)
 
     from src.main import app
 

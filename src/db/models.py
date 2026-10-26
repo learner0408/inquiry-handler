@@ -1,4 +1,4 @@
-"""v0 tables (create_all; Alembic deferred to first schema change).
+"""Database tables (create_all for fresh DBs; Alembic for later changes).
 
 chunks: RAG index rows (Nemotron passage embeddings, 2048 dims).
 conversation_threads/thread_messages: durable multi-turn history.
@@ -110,6 +110,7 @@ class ConversationThread(Base):
     sender_id: Mapped[str] = mapped_column(Text, nullable=False)  # wa_id for WhatsApp
     title: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     summary: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    summary_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

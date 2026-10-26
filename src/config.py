@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     CACHE_SIM_THRESHOLD: float = 0.8
-    HISTORY_MAX_TURNS: int = 20
+    HISTORY_MAX_MESSAGES: int = 20
 
     @property
     def google_doc_id_list(self) -> list[str]:

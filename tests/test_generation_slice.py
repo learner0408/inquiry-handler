@@ -141,9 +141,12 @@ def test_pipeline_cache_hit_short_circuits() -> None:
         reranks=lambda q, ch: {},
         generates=lambda q, h, r: gen_calls.append((q, h, r)) or {},
     ) as hist:
-        res = handle_inquiry("whatsapp", "u1", "question")
+        res = handle_inquiry("whatsapp", "u1", "question", external_id="wamid.cached")
     assert res == InquiryResult(text="cached answer", citations=["d#1"], cache_hit=True)
-    assert gen_calls == [] and hist.save.call_count == 0  # hit: no LLM, no save
+    assert gen_calls == [] and hist.load.call_count == 1  # hit: no retrieval or LLM
+    hist.save.assert_called_once_with(
+        "u1", "whatsapp", "question", "cached answer", external_id="wamid.cached"
+    )
 
 
 def test_pipeline_miss_grounded_caches_and_saves() -> None:
