@@ -1,0 +1,102 @@
+[
+  {
+    "name": "buyer-international-delivery-times",
+    "input": "How long do Standard, Express, and Priority international deliveries take?",
+    "expected_output": "Standard international shipping takes 7 to 14 business days, Express takes 3 to 7 business days, and Priority takes 2 to 4 business days, excluding customs holds. Remote areas add 2 to 3 days.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1QjokkjAVH5hlBkG7g3QuWP3HhnvOujBh2JUTej492oA"],
+      "tags": ["numeric", "multi_fact"]
+    }
+  },
+  {
+    "name": "buyer-return-windows-by-category",
+    "input": "What are the return periods for new items, fashion, and refurbished goods?",
+    "expected_output": "Most new items can be returned within 30 days of delivery, fashion within 45 days, and refurbished goods within 14 days. Items must be unused with tags and original packaging for a full refund.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1QjokkjAVH5hlBkG7g3QuWP3HhnvOujBh2JUTej492oA"],
+      "tags": ["numeric", "multi_fact"]
+    }
+  },
+  {
+    "name": "buyer-return-shipping-responsibility",
+    "input": "Do I pay return shipping if I changed my mind? What if the item arrived damaged?",
+    "expected_output": "For change-of-mind returns, the buyer pays unless the product page shows Free Returns. ShopNest covers return shipping for wrong, damaged, or defective items worldwide.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1QjokkjAVH5hlBkG7g3QuWP3HhnvOujBh2JUTej492oA"],
+      "tags": ["policy", "multi_part"]
+    }
+  },
+  {
+    "name": "buyer-free-shipping-threshold",
+    "input": "Is there a free-shipping threshold for international orders?",
+    "expected_output": "Many items over 49 dollars qualify for free standard shipping to eligible countries. Heavy or oversized goods may carry a surcharge shown at checkout.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1QjokkjAVH5hlBkG7g3QuWP3HhnvOujBh2JUTej492oA"],
+      "tags": ["numeric", "eligibility"]
+    }
+  },
+  {
+    "name": "buyer-support-one-time-code-scam",
+    "input": "Can ShopNest support ask me for a one-time code over the phone?",
+    "expected_output": "ShopNest support will never ask you for a one-time code over the phone. Never share one-time codes, even with callers claiming to be support.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1QjokkjAVH5hlBkG7g3QuWP3HhnvOujBh2JUTej492oA"],
+      "tags": ["security", "negative_policy"]
+    }
+  },
+  {
+    "name": "seller-fee-structure",
+    "input": "What fees does ShopNest charge sellers?",
+    "expected_output": "Sellers pay a referral fee of 6 to 15 percent by category and a 1.5 percent payment processing fee, plus optional fulfillment or storage fees. Professional plans have no listing fee for the first 500 SKUs.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1xLBQNTHLjbop6cwfSgSt-ypigaErfXEqK-4btfq6YaE"],
+      "tags": ["numeric", "multi_fact"]
+    }
+  },
+  {
+    "name": "seller-performance-thresholds",
+    "input": "What seller performance numbers must I maintain?",
+    "expected_output": "Sellers must keep Order Defect Rate under 1 percent, Late Dispatch under 4 percent, and Valid Tracking above 95 percent.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1xLBQNTHLjbop6cwfSgSt-ypigaErfXEqK-4btfq6YaE"],
+      "tags": ["numeric", "thresholds"]
+    }
+  },
+  {
+    "name": "seller-defective-restocking-fee",
+    "input": "Can I charge a restocking fee for a defective return?",
+    "expected_output": "Restocking fees for defective, wrong, or counterfeit claims are prohibited. Fees up to 10 percent are allowed only for change-of-mind returns in original condition where stated pre-purchase.",
+    "additional_metadata": {
+      "category": "answerable",
+      "expected_doc_ids": ["1xLBQNTHLjbop6cwfSgSt-ypigaErfXEqK-4btfq6YaE"],
+      "tags": ["policy_exclusion", "negative_policy"]
+    }
+  },
+  {
+    "name": "out-of-scope-cryptocurrency-payments",
+    "input": "Does ShopNest accept cryptocurrency payments?",
+    "expected_output": "I couldn't find that in the available documents.",
+    "additional_metadata": {
+      "category": "out_of_scope",
+      "expected_doc_ids": [],
+      "tags": ["fallback", "near_scope"]
+    }
+  },
+  {
+    "name": "out-of-scope-amazon-return-window",
+    "input": "What is Amazon Marketplace's return window?",
+    "expected_output": "I couldn't find that in the available documents.",
+    "additional_metadata": {
+      "category": "out_of_scope",
+      "expected_doc_ids": [],
+      "tags": ["fallback", "other_company"]
+    }
+  }
+]

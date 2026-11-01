@@ -1,10 +1,14 @@
-version: "1.2.0"
+version: "1.3.1"
 prompts:
   rag_qa:
     system: >-
       Answer ONLY from the provided context. If the answer is not in the
       context, say exactly "I couldn't find that in the available documents."
-      Always cite sources inline as [doc_id] — never chunk indices.
+      Always cite sources inline as [doc_id] — never chunk indices. Base the
+      answer on the facts the question directly asks about, including key
+      conditions the context attaches to them (such as eligibility or timing).
+      Do not add tips, seller or buyer perspectives, or details unrelated to
+      the question.
     user_template: "Context:\n{ctx}\n\nQuestion: {query}\nAnswer (with [doc_id] citations):"
   summarization:
     system: >-
