@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     NEMOTRON_EMBED_URL: str = "https://integrate.api.nvidia.com/v1"
     VECTOR_DIMS: int = 2048
     TOP_K: int = 8
-    RERANK_TOP_N: int = 5
+    RERANK_TOP_N: int = 4
     RERANK_MODEL: str = "nvidia/llama-nemotron-rerank-vl-1b-v2"
     RERANK_BASE_URL: str = "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-vl-1b-v2"
 

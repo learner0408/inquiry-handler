@@ -24,7 +24,7 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 - `src/rag/generation/` — `pipeline.py` (sole orchestrator), `answer.py` (sole LLM caller)
 - `src/conversation/` — `threads.py/history.py` (`conversation_threads` + `thread_messages`, `sender_id→thread_id`, load summary + last 20 raw messages, batch summaries per 20 expired messages, LLM title once per thread)
 - `prompts/rag_prompts.yaml` — versioned only, never hardcoded
-- `evals/` — DeepEval `test_*.py` (`Golden`/`ConversationalGolden` + `assert_test`), goldens in `evals/goldens/`
+- `evals/` — DeepEval `test_*.py` (`Golden`/`ConversationalGolden` + `assert_test`), goldens in `evals/goldens/`. Single-turn goldens JSON schema: `name` (stable id), `input`, `expected_output`, `additional_metadata{category: answerable|out_of_scope, expected_doc_ids, tags}`. Out-of-scope goldens are grounded-refusal cases (non-flaky GEval); never assert the canned `FALLBACK` string there — it only fires on empty retrieval. Judge metrics carry `flaky=True`, but at least one non-flaky threshold metric per case is mandatory (DeepEval refuses otherwise).
 - Imports: all at file top (after docstring), stdlib → third-party → first-party, `ruff check` clean. No function-level imports except circular-guard/lazy-heavy-dep with an inline `# why:` note.
 - Empty `__init__.py` in every dir under `src/` (regular packages — required for mypy module resolution; don't delete).
 
@@ -38,17 +38,17 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 - `uv run ruff check .`, `uv run mypy src`
 - `uv run alembic upgrade head` (apply pending migrations; also after fresh `init_db` + stamp)
 - `uv run python -m src.rag.ingestion.ingest --doc-id <id> --dry-run`
-- Evals only via `deepeval test run evals/test_rag.py` (never plain `pytest`)
+- Evals only via `deepeval test run evals/test_rag.py` (never plain `pytest`); judge = native AnthropicModel, temperature sent via `extra_body` (SDK ≥1.x dropped the `messages.create` kwarg); judge metrics `flaky=True` + one non-flaky metric per case per DeepEval's verdict rule; runs cost live API (~$0.80, `-n 3`).
 
 ## `src/config.py`
-Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N, LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_MESSAGES, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
+Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N (4), LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_MESSAGES, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
 
 ## Gotchas
 - Never read `.env` or `./secrets/*` contents (keys, tokens, JSON) into context — reference variable/file names only. Verify presence/shape via key names (e.g. `cut -d= -f1 .env`), never values.
 - pydantic-settings precedence: `.env` overrides `config.py` defaults **field-by-field**. Adding a key later changes only that field — keep `LLM_PROVIDER` and `LLM_MODEL` consistent (provider default is `anthropic`; a stale openai-model `LLM_MODEL` in `.env` with no `LLM_PROVIDER` line collides).
 - Native arm64 venv required: the Anaconda `uv` on this machine is x86_64 and installs broken native wheels. Use native arm64 `uv` (`/opt/homebrew/bin/uv`); sanity check `uv run python -c "import platform; print(platform.machine())"` prints `arm64`.
 - Meta: GET verify returns `hub.challenge` as text/plain with **dot-keyed** query params (`hub.mode` etc.); POST ack <20s then async; `statuses` payloads ACK'd + ignored; fresh portfolios may lock test WABAs (error 131031) pending business verification — Meta-side gate, test locally via signed curl; 24h window; media = `media_id` (5-min URL).
-- RAG-only, low temp, explicit “not in docs” fallback with citations.
+- RAG-only, low temp, explicit “not in docs” fallback with citations; ContextualRelevancy's floor is 0.05 by design (chunk-granularity dilution, not poor retrieval).
 - Public HTTPS required; subscribe to `messages` field in dashboard.
 
 ## Docs

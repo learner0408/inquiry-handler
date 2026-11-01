@@ -43,7 +43,21 @@ uv run python -m src.rag.ingestion.ingest --doc-id <id> --dry-run
 uv run pytest -q
 uv run ruff check .
 uv run mypy src
-deepeval test run evals/test_rag.py
 ```
+
+## Evals
+
+Prerequisites: Postgres running + docs ingested, `NVIDIA_API_KEY` and
+`ANTHROPIC_API_KEY` in `.env` (retrieval, generation, and the Anthropic judge
+are live — expect API costs; Meta creds are not needed).
+
+```bash
+uv run deepeval test run evals/test_rag.py
+```
+
+Golden inputs live in `evals/goldens/single_turn.json`. See `ARCHITECTURE.md`
+for the metric suite.
+
+## Docs
 
 See `ARCHITECTURE.md` for decisions + user flow, `AGENTS.md` for agent guardrails.
