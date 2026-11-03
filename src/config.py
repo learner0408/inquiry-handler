@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # the webhook path so non-webhook paths never need it.
     WHATSAPP_APP_SECRET: str = ""
 
+    # Optional channel: only needed when the Telegram webhook is enabled.
+    # Enforced lazily via the same webhook-path pattern as above.
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+
     GOOGLE_SERVICE_ACCOUNT_JSON: str
     GOOGLE_DOC_IDS: str
 

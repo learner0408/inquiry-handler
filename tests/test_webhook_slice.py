@@ -127,7 +127,7 @@ def test_post_rejects_bad_signature_before_parsing(client, monkeypatch) -> None:
     fired = []
     monkeypatch.setattr("src.webhooks.whatsapp.parse_meta_payload",
                         lambda p: fired.append(p) or None)
-    r = client.post("/webhooks/whatsapp", data=b'{"tampered": true}',
+    r = client.post("/webhooks/whatsapp", content=b'{"tampered": true}',
                     headers={"X-Hub-Signature-256": "sha256=deadbeef"})
     assert r.status_code == 403 and fired == []  # unverified input never parsed
 

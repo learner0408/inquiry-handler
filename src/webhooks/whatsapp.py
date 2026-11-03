@@ -16,19 +16,16 @@ import json
 import logging
 
 from fastapi import APIRouter, Request, Response
-from sqlalchemy import text as sa_text
 from sqlalchemy.exc import IntegrityError
 
 from src.channels.whatsapp import WhatsAppMessage, parse_meta_payload, send_message
 from src.config import get_settings
 from src.conversation.threads import maintain
-from src.db.engine import get_sync_engine
 from src.rag.generation.pipeline import handle_inquiry
+from src.webhooks.idempotency import external_id_seen as _external_id_seen
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-EXTERNAL_ID_SEEN = "SELECT 1 FROM thread_messages WHERE external_id = :mid"
 
 
 def _bad_signature() -> Response:
@@ -63,13 +60,6 @@ async def inbound(request: Request) -> Response:
     if message is not None and not _external_id_seen(message.external_id):
         asyncio.create_task(_process(message))
     return Response(content=json.dumps({"ok": "true"}), media_type="application/json")
-
-
-def _external_id_seen(external_id: str) -> bool:
-    if not external_id:
-        return False
-    with get_sync_engine().connect() as conn:
-        return conn.execute(sa_text(EXTERNAL_ID_SEEN), {"mid": external_id}).first() is not None
 
 
 async def _process(message: WhatsAppMessage) -> None:
