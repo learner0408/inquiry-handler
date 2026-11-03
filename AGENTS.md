@@ -13,8 +13,8 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 ## Layout
 - RAG stays under `src/rag/` — stages as children, never new top-level `src/*` for RAG code.
 - `src/main.py`, `src/config.py` — bootstrap + settings only
-- `src/channels/{base,whatsapp}.py` — adapters only, no LLM. New channel = new file impl `BaseChannel`.
-- `src/webhooks/` — thin handlers → `channels` → `rag.generation.pipeline.handle_inquiry()`
+- `src/channels/{base,whatsapp,telegram}.py` — adapters only, no LLM. New channel = new file impl `BaseChannel`.
+- `src/webhooks/` — thin handlers → `channels` → `rag.generation.pipeline.handle_inquiry()`; idempotency (external_id seen-check) via `src/webhooks/idempotency.py::external_id_seen`
 - `src/rag/ingestion/` — `google_docs.py` (service-account, allowlisted `GOOGLE_DOC_IDS`, store `doc_id+revision+chunk_hash`)
 - `src/rag/chunking/`, `src/rag/embeddings/` — dims must match pgvector index
 - `src/rag/vectordb/chunks.py` — chunk embeddings behind `VectorDBInterface` (atomic per-doc replace)
@@ -41,7 +41,7 @@ Default to LangChain for RAG/agent code (`langchain`, `langchain-openai`, `langc
 - Evals only via `deepeval test run evals/test_rag.py` (never plain `pytest`); judge = native AnthropicModel, temperature sent via `extra_body` (SDK ≥1.x dropped the `messages.create` kwarg); judge metrics `flaky=True` + one non-flaky metric per case per DeepEval's verdict rule; runs cost live API (~$0.80, `-n 3`).
 
 ## `src/config.py`
-Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N (4), LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_MESSAGES, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
+Single `pydantic-settings BaseSettings` + `lru_cache get_settings()`. Holds `DATABASE_URL, WHATSAPP_VERIFY_TOKEN/ACCESS_TOKEN/PHONE_ID/APP_SECRET, TELEGRAM_BOT_TOKEN/WEBHOOK_SECRET (optional, "" default, lazy-enforced), GOOGLE_SERVICE_ACCOUNT_JSON (path), GOOGLE_DOC_IDS, EMBEDDING_MODEL (nvidia/nemotron-3-embed-1b)/NEMOTRON_EMBED_URL/NVIDIA_API_KEY/VECTOR_DIMS (2048), CHUNK_STRATEGY/SIZE/OVERLAP, TOP_K, RERANK_MODEL/BASE_URL/TOP_N (4), LLM_PROVIDER (anthropic)/LLM_MODEL (claude-sonnet-4-6)/LLM_TEMPERATURE/ANTHROPIC_API_KEY, CACHE_SIM_THRESHOLD (0.8), HISTORY_MAX_MESSAGES, OPENAI_API_KEY (only when provider=openai)`. LLM secret enforced lazily in `answer.py`; `WHATSAPP_APP_SECRET` lazily in the webhook path (retrieval/ingest paths run key-free). No defaults for secrets; no `os.getenv` elsewhere.
 
 ## Gotchas
 - Never read `.env` or `./secrets/*` contents (keys, tokens, JSON) into context — reference variable/file names only. Verify presence/shape via key names (e.g. `cut -d= -f1 .env`), never values.

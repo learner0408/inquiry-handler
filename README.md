@@ -31,6 +31,20 @@ b = json.dumps(p, separators=(',', ':')).encode()
 print('sha256=' + hmac.new(b'<your-app-secret>', b, hashlib.sha256).hexdigest())"
 ```
 
+## Telegram (optional second channel)
+
+1. Create a bot with @BotFather → copy the token.
+2. Fill `TELEGRAM_BOT_TOKEN` and choose any random `TELEGRAM_WEBHOOK_SECRET` in `.env`.
+3. Register the webhook once:
+
+```bash
+curl "https://api.telegram.org/bot<token>/setWebhook" \
+  -d "url=https://<ngrok>/webhooks/telegram" \
+  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+```
+
+4. Message the bot — replies come from RAG; edits/callbacks/photo messages are ignored by design (`parse_telegram_payload` keeps only text-bearing `update.message`).
+
 Ingest a doc (dry-run first):
 
 ```bash
